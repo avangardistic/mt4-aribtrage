@@ -1,0 +1,6 @@
+{
+  "terminals": {
+    "LiteFinance": "C:/Users/YOUR_USER/AppData/Roaming/MetaQuotes/Terminal/YOUR_LITEFINANCE_TERMINAL_ID/MQL4",
+    "OpoFinance": "C:/Users/YOUR_USER/AppData/Roaming/MetaQuotes/Terminal/YOUR_OPOFINANCE_TERMINAL_ID/MQL4"
+  }
+}

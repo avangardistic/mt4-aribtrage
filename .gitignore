@@ -1,0 +1,48 @@
+# Local configuration
+config/terminals.json
+*.local.json
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# MetaTrader generated files
+*.ex4
+*.ex5
+*.log
+*.hst
+*.fxt
+*.set
+tester/
+logs/
+MQL4_Backup*/
+
+# Build and generated output
+build/
+dist/
+release/
+out/
+tmp/
+temp/
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Downloaded upstream archives
+*.zip
+*.rar
+*.7z
+!archive/upstream-sources/*.zip
