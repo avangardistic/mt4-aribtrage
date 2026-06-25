@@ -107,8 +107,8 @@ The included 32-bit DLLs are intended for MT4. Do not replace them with 64-bit D
 ### 1. Clone or download the project
 
 ```powershell
-git clone https://github.com/YOUR_USER/YOUR_REPO.git
-cd YOUR_REPO
+git clone https://github.com/avangardistic/mt4-aribtrage.git
+cd mt4-aribtrage
 ```
 
 ### 2. Configure local MT4 terminal paths

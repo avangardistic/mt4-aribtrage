@@ -133,6 +133,8 @@ int             g_stopCloseAttempts = 0;
 int             g_stopStatusAttempts = 0;
 int             g_masterCloseAttempts = 0;
 int             g_lastHeartbeatMs = 0;
+uint            g_lastHeartbeatTick = 0;
+uint            g_lastRenderTick = 0;
 
 //+------------------------------------------------------------------+
 //| CREATE UI                                                        |
@@ -403,9 +405,9 @@ void UpdateDisplay()
     
     string hbText = "Heartbeat: ● OFFLINE • ---";
     color hbColor = clrRed;
-    if(g_socketReady && g_lastHeartbeat > 0 && g_appState != STATE_STOPPED && g_appState != STATE_STOP_FAILED && g_appState != STATE_MANUAL_CHECK_REQUIRED)
+    if(g_socketReady && g_lastHeartbeatTick > 0 && g_appState != STATE_STOPPED && g_appState != STATE_STOP_FAILED && g_appState != STATE_MANUAL_CHECK_REQUIRED)
     {
-        int ageMs = (int)((TimeCurrent() - g_lastHeartbeat) * 1000);
+        int ageMs = (int)(GetTickCount() - g_lastHeartbeatTick);
         string ageText = "";
         if(ageMs <= 1000)
         {
@@ -534,6 +536,7 @@ void CleanupZMQ()
     g_masterActive = false;
     g_reqState = REQ_READY;
     g_lastHeartbeat = 0;
+    g_lastHeartbeatTick = 0;
     g_lastPriceReceived = 0;
     g_slaveBid = 0.0;
     g_slaveAsk = 0.0;
@@ -636,6 +639,7 @@ void SafeStart()
     g_stopPhase = STOP_PHASE_IDLE;
     g_appState = STATE_RUNNING;
     g_lastHeartbeat = 0;
+    g_lastHeartbeatTick = 0;
     UpdateDisplay();
     Print("✅ Started!");
     Print("========================================");
@@ -659,6 +663,7 @@ void RequestStop()
     g_masterActive = false;
     g_lastHeartbeat = 0;
     g_lastPriceReceived = 0;
+    g_lastHeartbeatTick = 0;
     g_slaveBid = 0.0;
     g_slaveAsk = 0.0;
     g_appState = STATE_STOPPING;
@@ -799,6 +804,7 @@ bool CloseTicketOneAttempt(int ticket)
 
 void FinishStop(ENUM_APP_STATE finalState)
 {
+    EventKillTimer();
     CleanupZMQ();
     g_running = false;
     g_closing = false;
@@ -978,7 +984,7 @@ void ProcessStopStateMachine()
             break;
         
         case STOP_PHASE_CLEANUP:
-            if(g_slaveHasPosition || (!g_slaveStatusKnown && g_stopCloseAttempts > 0))
+            if(g_slaveHasPosition || !g_slaveStatusKnown)
             {
                 Print("⚠️ Stop completed locally, but Slave reconciliation is uncertain.");
                 FinishStop(STATE_MANUAL_CHECK_REQUIRED);
@@ -1378,7 +1384,17 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnTimer()
 {
-    if(!g_running || g_closing || g_shutdown) return;
+    if(g_stopRequested)
+    {
+        ProcessStopStateMachine();
+        return;
+    }
+    
+    if(!g_running || g_closing || g_shutdown)
+    {
+        UpdateDisplay();
+        return;
+    }
     
     // Update prices
     g_bid = MarketInfo(InpSymbolLocal, MODE_BID);
@@ -1408,6 +1424,7 @@ void OnTimer()
                 g_slaveAsk = StringToDouble(parts[2]);
                 g_lastPriceReceived = TimeCurrent();
                 g_lastHeartbeat = TimeCurrent();
+                g_lastHeartbeatTick = GetTickCount();
                 g_masterActive = true;
             }
         }
@@ -1461,9 +1478,10 @@ void OnTimer()
     if(g_hasPos) CheckExit();
     else CheckOpportunity();
     
-    if(TimeCurrent() - g_lastDisplay >= 1)
+    if(GetTickCount() - g_lastRenderTick >= 250)
     {
         UpdateDisplay();
+        g_lastRenderTick = GetTickCount();
         g_lastDisplay = TimeCurrent();
     }
 }
@@ -1498,7 +1516,7 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
         else if(sparam == BTN_STOP)
         {
             Print("STOP button clicked");
-            SafeStop();
+            RequestStop();
             ObjectSetInteger(0, BTN_STOP, OBJPROP_STATE, false);
             ChartRedraw(0);
         }
@@ -1507,7 +1525,7 @@ void OnChartEvent(const int id, const long &lparam, const double &dparam, const 
     if(id == CHARTEVENT_KEYDOWN)
     {
         if(sparam == "S" || sparam == "s") SafeStart();
-        else if(sparam == "X" || sparam == "x") SafeStop();
+        else if(sparam == "X" || sparam == "x") RequestStop();
     }
 }
 
@@ -1518,7 +1536,7 @@ void OnDeinit(const int reason)
 {
     EventKillTimer();
     
-    if(g_running || g_socketReady) SafeStop();
+    CleanupZMQ();
     
     ObjectDelete(0, BTN_START);
     ObjectDelete(0, BTN_STOP);
@@ -1534,6 +1552,7 @@ void OnDeinit(const int reason)
     ObjectDelete(0, PREFIX + "Time");
     ObjectDelete(0, PREFIX + "RiskFree");
     ObjectDelete(0, PREFIX + "Trailing");
+    ObjectDelete(0, PREFIX + "Heartbeat");
     ChartRedraw(0);
     Print("Master stopped.");
 }
